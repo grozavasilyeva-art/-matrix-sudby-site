@@ -55,6 +55,11 @@
  .premium-example{padding:73px 0}.example-head{display:block;margin-bottom:28px}.example-head p{max-width:100%}.example-layout{display:block}.example-aside{position:static;min-height:unset;margin-bottom:28px;padding:24px}.chapter-no{font-size:76px}.example-aside h3{font-size:29px}.example-article h3{font-size:39px}.example-article p{font-size:15px;line-height:1.82}.example-article .lead{font-size:17px;line-height:1.75}.example-article h4{font-size:25px;margin-top:36px}.editorial-quote{font-size:24px}.example-bottom{flex-direction:column;align-items:stretch}.example-bottom .button{width:100%;justify-content:center;text-align:center}
 }
 @media(max-width:380px){.hero-visual{height:295px;min-height:295px}.arch-window{height:315px}.hero-text h1{font-size:36px}.plan-status{display:inline-block;margin:7px 0 0}}
+
+/* Shop preview: never launches payments until the verified backend is available. */
+#checkout-dialog{width:min(92vw,520px);border:1px solid #c5a887;padding:clamp(22px,5vw,38px);background:#f9f4ec;color:#261b13;box-shadow:0 24px 90px #21180f55}
+#checkout-dialog::backdrop{background:rgba(32,21,13,.65)}#checkout-dialog h2{font:normal clamp(29px,5vw,40px)/1.12 Georgia,serif;margin:12px 0}#checkout-dialog p{line-height:1.7;font-size:15px}#checkout-close{margin-top:10px;min-height:45px}
+@media(max-width:700px){#checkout-preview{width:100%;justify-content:center}}
 </style>
 </head>
 <body>
@@ -69,7 +74,7 @@
 <div class="matrix-layout"><div class="matrix-panel"><div class="mini-top"><span>ВАША СХЕМА</span><span>КРУЖКИ ИНТЕРАКТИВНЫ</span></div><svg id="matrix-svg" class="matrix-svg" viewBox="0 0 440 440" role="group" aria-label="Нажимаемые позиции матрицы"></svg><div class="matrix-legend"><span><i class="dot"></i>Личность</span><span><i class="dot blue"></i>Таланты</span><span><i class="dot pink"></i>Отношения</span><span><i class="dot green"></i>Деньги</span></div><p class="matrix-note">Каждое число вычисляется по формуле.<br>Расшифровка зависит от его положения.</p></div>
 <article class="card-panel" id="interpretation" aria-live="polite"><span class="position-kicker" id="position-kicker">Личная энергия</span><div class="arcana-header"><div class="arcana-number" id="arcana-number">8</div><div><h3 id="arcana-name">Справедливость</h3><p id="arcana-position">Центр матрицы</p></div></div><p class="description" id="arcana-description"></p><div class="analysis-pair"><div><strong>Ресурс</strong><p id="arcana-resource"></p></div><div><strong>Что исследовать</strong><p id="arcana-shadow"></p></div></div><div class="reflection"><span>ВОПРОС ДЛЯ СЕБЯ</span><p id="arcana-question"></p></div><p class="formula" id="arcana-formula"></p></article></div>
 <div class="category-list" role="group" aria-label="Разделы матрицы" id="categories"></div><div class="positions-list" id="positions" role="group" aria-label="Позиции выбранного раздела"></div>
-<div class="report-tools"><button type="button" class="button button-outline" id="print-report">Создать PDF-файл ↓</button><button type="button" class="button button-outline" id="copy-results">Скопировать числа</button></div><div class="mini-disclaimer" id="copy-status" role="status"></div><div id="pdf-result" class="pdf-result" hidden><strong>Отчёт готов!</strong><p>Нажми «Открыть PDF». На iPhone в открывшемся документе нажми «Поделиться» → «Сохранить в Файлы».</p><a id="pdf-open" class="button button-dark" target="_blank" rel="noopener">Открыть PDF ↗</a><a id="pdf-download" class="button button-outline" download="matrix-report.pdf">Скачать PDF ↓</a></div>
+<div class="report-tools"><button type="button" class="button button-outline" id="print-report">Скачать бесплатный PDF-образец ↓</button><button type="button" class="button button-outline" id="copy-results">Скопировать числа</button></div><div class="mini-disclaimer" id="copy-status" role="status"></div><div id="pdf-result" class="pdf-result" hidden><strong>Бесплатный PDF-образец готов</strong><p>Это ознакомительный документ на 3 страницы. На iPhone открой PDF, затем нажми «Поделиться» → «Сохранить в Файлы». Полный платный отчёт пока недоступен.</p><a id="pdf-open" class="button button-dark" target="_blank" rel="noopener">Открыть PDF ↗</a><a id="pdf-download" class="button button-outline" download="matrix-report.pdf">Скачать PDF ↓</a></div>
 </div></section>
 <section class="subjects" id="topics"><div class="shell"><div class="section-head"><div><span class="kicker">СОДЕРЖАНИЕ АТЛАСА</span><h2>Что можно исследовать</h2></div><p>Каждая тема раскрывает определённую часть символической карты, не заменяя личный опыт.</p></div><div class="subject-grid"><a class="subject" href="#calculator" data-topic="horizontal"><span class="subject-index">01 / ВНУТРЕННИЙ МИР</span><div class="subject-icon">◌</div><h3>Личность</h3><p>Центр и левая горизонталь.</p></a><a class="subject" href="#calculator" data-topic="talents"><span class="subject-index">02 / ПОТЕНЦИАЛ</span><div class="subject-icon">✧</div><h3>Таланты</h3><p>Верхняя вертикаль и навыки.</p></a><a class="subject" href="#calculator" data-topic="love"><span class="subject-index">03 / БЛИЗОСТЬ</span><div class="subject-icon">♡</div><h3>Отношения</h3><p>Линия любви и ценностей.</p></a><a class="subject" href="#calculator" data-topic="money"><span class="subject-index">04 / РЕАЛИЗАЦИЯ</span><div class="subject-icon">◇</div><h3>Деньги</h3><p>Правая сторона и денежная линия.</p></a></div></div></section>
 
@@ -78,7 +83,7 @@
   <div class="plans-top"><span class="kicker">ОДНА МАТРИЦА · ДВА УРОВНЯ ГЛУБИНЫ</span><h2 id="plans-title">Что бесплатно,<br><em>а за что платить?</em></h2><p>Сам расчёт мы не прячем. Платным будет не число на схеме, а вдумчивая книга с подробным разбором связей между арканами.</p></div>
   <div class="plans-grid">
    <article class="plan plan-free"><div class="plan-index">01 / ЗНАКОМСТВО</div><h3>Твоя матрица</h3><div class="plan-price">Бесплатно</div><p>Все линии и арканы на одной интерактивной карте, без регистрации.</p><ul><li>Полная схема и 20 основных точек</li><li>Личная горизонталь, таланты и кармический хвост</li><li>Любовная и денежная линии</li><li>Краткое значение каждой позиции</li><li>Прозрачные формулы вычисления</li></ul><a href="#calculator" class="button button-outline">Рассчитать бесплатно ↗</a></article>
-   <article class="plan plan-paid"><div class="plan-index">02 / ПОЛНЫЙ АТЛАС <span class="plan-status">ПЛАНИРУЕТСЯ</span></div><h3>История твоих чисел</h3><div class="plan-price">550 ₽ <small>один раз · без подписки</small></div><p>Развёрнутая персональная книга с анализом сочетаний, а не набор коротких карточек.</p><ul><li>Все разделы бесплатной матрицы</li><li>25–35 страниц содержательного разбора (цель)</li><li>Характер, сильные и сложные стороны</li><li>Деньги, отношения, предназначение, таланты</li><li>Кармический хвост и родовые линии</li><li>Сочетания арканов и персональные вопросы</li><li>Оформленный PDF и повторное скачивание</li></ul><a href="#premium-example" class="button button-dark">Посмотреть фрагмент разбора ↗</a><div class="plan-fine">Оплата пока не подключена. Это спецификация будущего продукта, не предложение купить готовый отчёт.</div></article>
+   <article class="plan plan-paid"><div class="plan-index">02 / ПОЛНЫЙ АТЛАС <span class="plan-status">ПЛАНИРУЕТСЯ</span></div><h3>История твоих чисел</h3><div class="plan-price">550 ₽ <small>один раз · без подписки</small></div><p>Развёрнутая персональная книга с анализом сочетаний, а не набор коротких карточек.</p><ul><li>Все разделы бесплатной матрицы</li><li>25–35 страниц содержательного разбора (цель)</li><li>Характер, сильные и сложные стороны</li><li>Деньги, отношения, предназначение, таланты</li><li>Кармический хвост и родовые линии</li><li>Сочетания арканов и персональные вопросы</li><li>Оформленный PDF и повторное скачивание</li></ul><a href="#premium-example" class="button button-dark">Посмотреть фрагмент разбора ↗</a><button type="button" id="checkout-preview" class="button button-outline" style="margin-top:10px;align-self:flex-start;text-align:center">Полный отчёт · 550 ₽ (скоро)</button><div class="plan-fine">Оплата пока не подключена. Это спецификация будущего продукта, не предложение купить готовый отчёт.</div></article>
   </div>
  </div>
 </section>
@@ -267,11 +272,12 @@ function saveRealPdf(){
  const date=String(state.d).padStart(2,'0')+'.'+String(state.m).padStart(2,'0')+'.'+state.y;
  const v=state.vals;
  const canvases=[pdfCover(date,v),pdfDiagramPage(date,v,2)];
- const chapters=[['Личность',['A','A1','A2','I','E2','E1','E']],['Таланты',['C','C1','C2']],['Кармический хвост',['G2','G1','G']],['Любовь и отношения',['G2','FL','F3']],['Денежный канал',['F3','FR','E2']],['Родовые линии',['B','D','F','H']]];
- chapters.forEach(([title,keys])=>canvases.push(...pdfChapterPages(title,keys,date,v,canvases.length+1)));
+ // Only a free sample is generated in the browser. Paid text remains server-side.
+ canvases.push(pdfChapterPages('Личность · фрагмент',['I','A'],date,v,3)[0]);
+ canvases.forEach(cv=>{const ctx=cv.getContext('2d');ctx.save();ctx.translate(cv.width/2,cv.height/2);ctx.rotate(-Math.PI/6);ctx.textAlign='center';ctx.fillStyle='rgba(112,82,55,.11)';ctx.font='bold 76px Arial';ctx.fillText('БЕСПЛАТНЫЙ ОБРАЗЕЦ',0,0);ctx.restore();});
  if(pdfUrl)URL.revokeObjectURL(pdfUrl);
  pdfUrl=URL.createObjectURL(packPdf(canvases));
- const fname=`matrix-${state.y}-${String(state.m).padStart(2,'0')}-${String(state.d).padStart(2,'0')}.pdf`;
+ const fname=`matrix-demo-${state.y}-${String(state.m).padStart(2,'0')}-${String(state.d).padStart(2,'0')}.pdf`;
  $('#pdf-download').href=pdfUrl;$('#pdf-download').download=fname;
  $('#pdf-open').href=pdfUrl;
  result.hidden=false;
@@ -284,6 +290,19 @@ function startPdf(){
 $('#print-report').addEventListener('click',startPdf);
 $('#report-button').addEventListener('click',()=>{startPdf();setTimeout(()=>$('#pdf-result').scrollIntoView({behavior:'smooth',block:'center'}),300)});
 
+const previewBuy = document.getElementById('checkout-preview');
+const checkoutDialog = document.getElementById('checkout-dialog');
+previewBuy?.addEventListener('click',()=>{if(typeof checkoutDialog?.showModal==='function')checkoutDialog.showModal();else alert('Оплата пока не подключена. Сейчас ничего оплачивать не нужно.')});
+document.getElementById('checkout-close')?.addEventListener('click',()=>checkoutDialog.close());
+checkoutDialog?.addEventListener('click',e=>{if(e.target===checkoutDialog)checkoutDialog.close()});
 render();
 </script>
+
+<dialog id="checkout-dialog" aria-labelledby="checkout-title">
+ <span class="kicker">ПОЛНЫЙ РАЗБОР · 550 ₽</span>
+ <h2 id="checkout-title">Готовим оплату и выдачу отчётов</h2>
+ <p>Полный персональный PDF пока не продаётся. Мы проверяем методику, тексты и безопасную оплату. Сейчас можно бесплатно рассчитать матрицу и скачать короткий PDF-образец.</p>
+ <p><strong>Никаких списаний не производится.</strong></p>
+ <button id="checkout-close" class="button button-dark" type="button">Понятно</button>
+</dialog>
 </body></html>
