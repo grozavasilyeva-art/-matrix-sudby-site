@@ -1,0 +1,21 @@
+name: Проверка сайта
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Скачать код
+        uses: actions/checkout@v4
+      - name: Установить Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Проверить калькулятор и безопасность платного доступа
+        run: node --test scripts/site.test.mjs
