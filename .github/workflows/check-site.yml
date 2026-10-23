@@ -2,8 +2,9 @@ name: Проверка сайта
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
+    branches: [main]
 
 jobs:
   smoke:
@@ -11,11 +12,17 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Скачать код
+      - name: Скачать исходный код
         uses: actions/checkout@v4
       - name: Установить Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Проверить калькулятор и безопасность платного доступа
+      - name: Проверить сайт и защиту платного контента
         run: node --test scripts/site.test.mjs
+      - name: Собрать переносимую статическую версию
+        run: node scripts/build-static.mjs
+      - name: Проверить наличие готовых файлов
+        run: |
+          test -s dist/index.html
+          test -s dist/manifest.json
