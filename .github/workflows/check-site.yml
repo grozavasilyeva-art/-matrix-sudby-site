@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: '22'
       - name: Проверить сайт и защиту платного контента
-        run: node --test scripts/site.test.mjs
+        run: node --test scripts/*.test.mjs
       - name: Собрать переносимую статическую версию
         run: node scripts/build-static.mjs
       - name: Проверить наличие готовых файлов
