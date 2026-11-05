@@ -4,7 +4,7 @@ import { createDraftOrder, markPaymentCreated } from '../server/order-domain.mjs
 import { createFulfillment } from '../server/fulfillment.mjs';
 
 const pdf = new Uint8Array([...new TextEncoder().encode('%PDF-1.4\n'), ...new Uint8Array(250)]);
-function setup({ paymentPatch = {}, blockedRender = null } = {}) {
+function setup({ paymentPatch = {}, blockedRender = null, renderBytes = pdf } = {}) {
   const draft = createDraftOrder({
     orderId: 'order_12345678',
     birthDate: '1989-08-23',
@@ -43,7 +43,7 @@ function setup({ paymentPatch = {}, blockedRender = null } = {}) {
       calls.render += 1;
       assert.equal(job.orderId, 'order_12345678');
       if (blockedRender) await blockedRender;
-      return pdf;
+      return renderBytes;
     }
   };
   const storage = {
@@ -136,4 +136,14 @@ test('невалидный PDF не сохраняется и не выдаёт�
   assert.ok(draft);
   await assert.rejects(service.fulfill('bad'), /Invalid order ID/);
   assert.equal(calls.provider, 0);
+});
+
+
+test('повреждённый PDF не становится доступным покупателю', async () => {
+  const invalid = new Uint8Array(260).fill(55);
+  const { service, calls } = setup({ renderBytes: invalid });
+  await assert.rejects(service.fulfill('order_12345678'), /Invalid PDF file signature/);
+  assert.equal(calls.put, 0);
+  assert.equal(calls.finish, 0);
+  await assert.rejects(service.download('order_12345678', 'owner-secret'), /No paid report/);
 });
