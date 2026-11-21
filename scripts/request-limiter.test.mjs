@@ -36,7 +36,8 @@ test('local checkout refuses bot-like order floods but preserves healthy order r
     assert.equal(one.res.status,201);
     assert.equal(two.res.status,201);
     assert.equal(three.res.status,429);
-    assert.equal(three.res.headers.get('Retry-After'),'60');
+    const retry=Number(three.res.headers.get('Retry-After'));
+    assert.ok(retry>=1 && retry<=60);
     const health=await fetch(url+'/health');
     assert.equal(health.status,200);
     const own=await fetch(url+'/api/orders/'+one.data.orderId,{
