@@ -10,6 +10,7 @@ import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { createDraftOrder, markPaymentCreated, canIssueReport } from '../server/order-domain.mjs';
 import { createFulfillment } from '../server/fulfillment.mjs';
+import { createFixedWindowLimiter } from '../server/request-limiter.mjs';
 
 const MAX_BODY = 2048;
 function sha(token) { return createHash('sha256').update(token).digest('hex'); }
@@ -65,9 +66,10 @@ function fakePdf(date) {
   return new Uint8Array(Buffer.from(pdf));
 }
 
-export async function createLocalDemo({ dataDir, renderer }={}) {
+export async function createLocalDemo({ dataDir, renderer, ordersPerMinute=30 }={}) {
   if (process.env.NODE_ENV === 'production') throw new Error('Local demo is blocked in production mode');
   if (typeof dataDir !== 'string' || !dataDir.trim()) throw new TypeError('dataDir required');
+  const limiter=createFixedWindowLimiter({limit:ordersPerMinute});
   const root=resolve(dataDir);
   const dbPath=join(root,'orders.json'), reportsPath=join(root,'reports');
   await mkdir(reportsPath,{recursive:true,mode:0o700});
@@ -157,6 +159,12 @@ export async function createLocalDemo({ dataDir, renderer }={}) {
       const path=new URL(req.url,'http://'+host).pathname;
       if(req.method==='GET' && path==='/health') return asJson(res,200,{status:'ok',mode:'local-demo',payments:'simulated'});
       if(req.method==='POST' && path==='/api/orders'){
+        // Only a local loopback source address is trusted. Do not trust X-Forwarded-For.
+        const gate=limiter.check(req.socket.remoteAddress || 'unknown');
+        if(!gate.allowed){
+          res.setHeader('Retry-After',String(gate.retryAfterSeconds));
+          return asJson(res,429,{error:'Too many test orders; retry later'});
+        }
         const body=await bodyJson(req);
         const id='order_'+randomUUID().replaceAll('-','');
         const token=randomBytes(32).toString('base64url');
