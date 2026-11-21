@@ -18,6 +18,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Установить Python для тестов приватного адаптера
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Проверить сайт и защиту платного контента
         run: node --test scripts/*.test.mjs
       - name: Собрать переносимую статическую версию
