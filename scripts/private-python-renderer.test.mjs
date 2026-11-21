@@ -36,3 +36,22 @@ test('rejects malformed generated PDF', async () => {
     await assert.rejects(createPrivatePythonRenderer({bundleDir:dir}).render(job), /structure invalid/);
   } finally { await rm(dir,{recursive:true,force:true}); }
 });
+
+test('limits parallel PDF jobs, accepts a bounded queue and rejects overflow', async () => {
+  const dir=await fixture("import argparse,time\nfrom pathlib import Path\np=argparse.ArgumentParser()\np.add_argument('--date')\np.add_argument('--out')\na=p.parse_args()\ntime.sleep(.25)\nPath(a.out).write_bytes(b'%PDF-1.4\\n'+b'1'*700+b'\\n%%EOF\\n')\n");
+  try {
+    const renderer=createPrivatePythonRenderer({bundleDir:dir,maxConcurrent:1,maxPending:1});
+    const first=renderer.render(job);
+    const second=renderer.render({...job,orderId:'order_99999999'});
+    await assert.rejects(renderer.render({...job,orderId:'order_88888888'}), /queue at capacity/);
+    const pdfs=await Promise.all([first,second]);
+    assert.equal(pdfs.length,2);
+    assert.ok(pdfs.every(pdf=>pdf.length>500));
+  } finally { await rm(dir,{recursive:true,force:true}); }
+});
+
+test('rejects invalid generator limits before starting any process', async () => {
+  for (const options of [{maxConcurrent:0},{maxConcurrent:100},{maxPending:-1},{maxPending:101}]) {
+    assert.throws(()=>createPrivatePythonRenderer({bundleDir:'/tmp/private-bundle',...options}),/Invalid/);
+  }
+});
