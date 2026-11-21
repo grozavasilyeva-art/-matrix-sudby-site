@@ -16,7 +16,10 @@ export function createFixedWindowLimiter({ limit=30, windowMs=60000, now=Date.no
       if(!Number.isFinite(time))throw new Error('Clock is invalid');
       // Prevent unbounded memory use from repeated distinct keys.
       if(slots.size>4096) for(const [k,v] of slots) if(time>=v.until)slots.delete(k);
-      if(slots.size>8192) slots.clear();
+      // Fail closed when the key table fills, rather than resetting all existing limits.
+      if(slots.size>=8192 && !slots.has(key)) {
+        return {allowed:false,retryAfterSeconds:Math.ceil(windowMs/1000)};
+      }
       let slot=slots.get(key);
       if(!slot||time>=slot.until){
         slot={count:0,until:time+windowMs};
