@@ -11,12 +11,16 @@ import { normalizeBirthDate } from './order-domain.mjs';
 
 const MAX_BYTES = 20 * 1024 * 1024;
 
-export function createPrivatePythonRenderer({ bundleDir, pythonBin='python3', timeoutMs=45000 }={}) {
+export function createPrivatePythonRenderer({ bundleDir, pythonBin='python3', timeoutMs=45000, maxConcurrent=1, maxPending=4 }={}) {
   if (typeof bundleDir !== 'string' || !bundleDir.trim()) throw new TypeError('Private bundle directory required');
   if (typeof pythonBin !== 'string' || !/^[a-zA-Z0-9_./-]+$/.test(pythonBin)) throw new TypeError('Invalid Python executable');
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 120000) throw new RangeError('Invalid timeout');
+  if (!Number.isInteger(maxConcurrent) || maxConcurrent < 1 || maxConcurrent > 8) throw new RangeError('Invalid concurrency limit');
+  if (!Number.isInteger(maxPending) || maxPending < 0 || maxPending > 100) throw new RangeError('Invalid queue limit');
   const dir = resolve(bundleDir);
-  async function render(job) {
+  let active=0;
+  const waiting=[];
+  async function renderOne(job) {
     // Caller must be trusted fulfillment code that has independently verified payment.
     if (!job || job.schemaVersion !== 'matrix-report-v1' || job.product !== 'matrix-full-report-v1' ||
       typeof job.orderId !== 'string' || !/^[a-zA-Z0-9_-]{8,96}$/.test(job.orderId)) {
@@ -64,6 +68,32 @@ export function createPrivatePythonRenderer({ bundleDir, pythonBin='python3', ti
     } finally {
       await rm(folder, { recursive: true, force: true });
     }
+  }
+  function drain() {
+    while (active < maxConcurrent && waiting.length) {
+      const item=waiting.shift();
+      active++;
+      Promise.resolve().then(()=>renderOne(item.job)).then(item.resolve,item.reject).finally(()=>{
+        active--;
+        drain();
+      });
+    }
+  }
+  function render(job) {
+    // Fail fast, before queueing, when the call does not carry a trusted shape.
+    if (!job || job.schemaVersion !== 'matrix-report-v1' || job.product !== 'matrix-full-report-v1' ||
+        typeof job.orderId !== 'string' || !/^[a-zA-Z0-9_-]{8,96}$/.test(job.orderId)) {
+      return Promise.reject(new Error('Untrusted private report job'));
+    }
+    try { normalizeBirthDate(job.birthDate); }
+    catch (error) { return Promise.reject(error); }
+    if (active >= maxConcurrent && waiting.length >= maxPending) {
+      return Promise.reject(new Error('Private renderer queue at capacity'));
+    }
+    return new Promise((resolve,reject)=>{
+      waiting.push({job,resolve,reject});
+      drain();
+    });
   }
   return Object.freeze({render});
 }
