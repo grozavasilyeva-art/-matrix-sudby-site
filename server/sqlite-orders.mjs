@@ -55,6 +55,7 @@ export function createSQLiteOrders({filePath,now=Date.now,leaseMs=120000}={}) {
   } catch(e) {db.close();throw e;}
 
   const lookup=db.prepare('SELECT * FROM orders WHERE order_id=?');
+  const lookupPayment=db.prepare('SELECT * FROM orders WHERE payment_id=?');
   const insert=db.prepare(
     'INSERT INTO orders(order_id,birth_date,product,amount_minor,currency,status,payment_id,created_at,token_hash) '+
     'VALUES(?,?,?,?,?,?,?,?,?)');
@@ -92,6 +93,10 @@ export function createSQLiteOrders({filePath,now=Date.now,leaseMs=120000}={}) {
     async get(id) {
       validateId(id);
       return fromRow(read(id));
+    },
+    async getByPaymentId(paymentId) {
+      if(typeof paymentId!=='string'||!PAYMENT.test(paymentId))throw new Error('Invalid payment ID');
+      return fromRow(lookupPayment.get(paymentId));
     },
     async saveVerifiedPayment(verified) {
       if(!canIssueReport(verified))throw new Error('Payment not verified');
