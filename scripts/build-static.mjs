@@ -14,6 +14,7 @@ const dist = join(root, 'dist');
 const publicFiles = [
   'index.html',
   'assets/styles.css',
+  'assets/hero-marble.avif',
   'src/arcana.mjs',
   'src/calculator.mjs',
   'src/pdf-preview.mjs',
@@ -23,7 +24,7 @@ const html = await readFile(join(root, 'index.html'), 'utf8');
 if (!html.includes('<html lang="ru">') || !html.includes('id="calculator"')) {
   throw new Error('The site entrypoint is missing or incomplete');
 }
-for (const ref of ['./assets/styles.css', './src/app.mjs']) {
+for (const ref of ['./assets/styles.css', './assets/hero-marble.avif', './src/app.mjs']) {
   if (!html.includes(ref)) throw new Error('Missing public reference: ' + ref);
 }
 const fileHashes = {};
