@@ -2,7 +2,7 @@
  * LOCAL DEMO ONLY. Never deploy this server on the public Internet.
  * It binds exclusively to 127.0.0.1, uses fake payment events, and has no
  * YooKassa, mail, analytics or cloud credentials.
- * The JSON file backend is suitable for single-process demonstration, NOT production.
+ * SQLite provides durable orders for single-host tests; NOT production web payments.
  */
 import { createServer } from 'node:http';
 import { randomBytes, randomUUID, createHash, timingSafeEqual } from 'node:crypto';
@@ -11,6 +11,7 @@ import { join, resolve } from 'node:path';
 import { createDraftOrder, markPaymentCreated, canIssueReport } from '../server/order-domain.mjs';
 import { createFulfillment } from '../server/fulfillment.mjs';
 import { createFixedWindowLimiter } from '../server/request-limiter.mjs';
+import { createSQLiteOrders } from '../server/sqlite-orders.mjs';
 
 const MAX_BODY = 2048;
 function sha(token) { return createHash('sha256').update(token).digest('hex'); }
@@ -71,63 +72,26 @@ export async function createLocalDemo({ dataDir, renderer, ordersPerMinute=30 }=
   if (typeof dataDir !== 'string' || !dataDir.trim()) throw new TypeError('dataDir required');
   const limiter=createFixedWindowLimiter({limit:ordersPerMinute});
   const root=resolve(dataDir);
-  const dbPath=join(root,'orders.json'), reportsPath=join(root,'reports');
+  const reportsPath=join(root,'reports');
   await mkdir(reportsPath,{recursive:true,mode:0o700});
-  let raw={orders:[]};
-  try { raw=JSON.parse(await readFile(dbPath,'utf8')); }
-  catch(e) { if(e.code !== 'ENOENT') throw e; }
-  if(!Array.isArray(raw.orders)) throw Error('Invalid local orders data');
-  const records=new Map(raw.orders.map(x=>[x.orderId,x]));
-  let queue=Promise.resolve();
-  const queued=(action)=>{
-    const task=queue.then(async()=>{
-      const value=action();
-      const tmp=dbPath+'.'+randomUUID()+'.tmp';
-      await writeFile(tmp,JSON.stringify({orders:[...records.values()]},null,2),{mode:0o600});
-      await rename(tmp,dbPath);
-      return value;
-    });
-    queue=task.then(()=>{},()=>{});
-    return task;
-  };
-  const db={
-    async get(id){await queue;const value=records.get(id);return value?structuredClone(value):null;},
-    async saveVerifiedPayment(paid){return queued(()=>{
-      const record=records.get(paid.orderId);
-      if(!record || record.paymentId!==paid.paymentId) throw Error('Order changed');
-      Object.assign(record,{status:'paid'});
-    });},
-    async claimReport(id){return queued(()=>{
-      const rec=records.get(id);if(!rec||rec.status!=='paid') throw Error('Order unpaid');
-      if(rec.reportState==='ready') return {state:'ready'};
-      if(rec.reportState==='processing' && rec.claimUntil>Date.now()) return {state:'busy'};
-      const token=randomUUID();
-      Object.assign(rec,{reportState:'processing',claimUntil:Date.now()+120000,claimToken:token});
-      return {state:'claimed',token};
-    });},
-    async finishReport(id,token,key){return queued(()=>{
-      const rec=records.get(id);
-      if(!rec || rec.claimToken!==token || rec.reportState!=='processing') throw Error('Claim expired');
-      Object.assign(rec,{reportState:'ready',privateObjectKey:key,claimToken:null,claimUntil:0});
-    });},
-    async failReport(id,token){return queued(()=>{
-      const rec=records.get(id);
-      if(rec && rec.claimToken===token) Object.assign(rec,{reportState:'failed',claimToken:null,claimUntil:0});
-    });}
-  };
+  const db=createSQLiteOrders({filePath:join(root,'orders.sqlite')});
+  // Only a LOCAL click on the fake confirmation endpoint authorizes this
+  // in-memory mock. After fulfillment, status='paid' persists in SQLite.
+  const simulatedConfirmed=new Set();
   const authorize={
     async assertAccess(stored, token){
       if(!verifyToken(stored,token)){const e=Error('Unauthorized');e.status=401;throw e;}
     }
   };
   const provider={
-    async getPayment(id){
-      await queue;
-      const order=[...records.values()].find(x=>x.paymentId===id);
-      if(!order) throw Error('Unknown fake payment');
+    async getPayment(paymentId) {
+      const order=await db.getByPaymentId(paymentId);
+      if(!order)throw Error('Unknown fake payment');
+      const approved=order.status==='paid'||simulatedConfirmed.has(order.orderId);
       return {
-        id, paid:order.simulatedPaid===true,
-        status:order.simulatedPaid===true?'succeeded':'pending',
+        id:paymentId,
+        status:approved?'succeeded':'pending',
+        paid:approved,
         amount:{value:'550.00',currency:'RUB'},
         metadata:{order_id:order.orderId}
       };
@@ -170,7 +134,7 @@ export async function createLocalDemo({ dataDir, renderer, ordersPerMinute=30 }=
         const token=randomBytes(32).toString('base64url');
         let order=createDraftOrder({orderId:id,birthDate:body.birthDate,nowIso:new Date().toISOString()});
         order=markPaymentCreated(order,'demo_'+randomUUID().replaceAll('-',''));
-        await queued(()=>{records.set(id,{...order,tokenHash:sha(token),simulatedPaid:false,reportState:'new'});});
+        await db.create({...order,tokenHash:sha(token)});
         return asJson(res,201,{orderId:id,accessToken:token,status:'payment_pending',amount:'550.00',currency:'RUB',testOnly:true});
       }
       const match=/^\/api\/(?:dev\/)?orders\/([a-zA-Z0-9_-]{8,96})(?:\/(confirm|report))?$/.exec(path);
@@ -185,7 +149,7 @@ export async function createLocalDemo({ dataDir, renderer, ordersPerMinute=30 }=
       if(req.method==='POST' && verb==='confirm' && path.startsWith('/api/dev/') &&
           req.headers['x-local-demo']==='acknowledge-fake-payment'){
         await bodyJson(req);
-        await queued(()=>{const rec=records.get(id);rec.simulatedPaid=true;});
+        simulatedConfirmed.add(id);
         const result=await service.fulfill(id);
         return asJson(res,200,{orderId:id,...result,testOnly:true});
       }
@@ -208,6 +172,6 @@ export async function createLocalDemo({ dataDir, renderer, ordersPerMinute=30 }=
     await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
     return 'http://127.0.0.1:'+server.address().port;
   }
-  async function close(){await new Promise((resolve,reject)=>server.close(e=>e?reject(e):resolve()));}
+  async function close(){await new Promise((resolve,reject)=>server.close(e=>e?reject(e):resolve()));db.close();}
   return Object.freeze({server,listen,close});
 }
