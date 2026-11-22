@@ -97,7 +97,7 @@ test('локальная сборка включает HTML, CSS и JS без о
   assert.equal(result.status,0,result.stderr);
   const manifest=JSON.parse(readFileSync(join(root,'dist/manifest.json'),'utf8'));
   assert.equal(manifest.format,'static-site-v2');
-  for (const name of ['index.html','assets/styles.css','src/arcana.mjs','src/calculator.mjs','src/pdf-preview.mjs','src/app.mjs']) {
+  for (const name of ['index.html','assets/styles.css','assets/hero-marble.avif','src/arcana.mjs','src/calculator.mjs','src/pdf-preview.mjs','src/app.mjs']) {
     assert.ok(existsSync(join(root,'dist',name)),'Нет файла: '+name);
     assert.match(manifest.files[name],/^[0-9a-f]{64}$/);
   }
