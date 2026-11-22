@@ -7,7 +7,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createLocalDemo } from '../dev/local-demo.mjs';
@@ -49,6 +50,14 @@ test('real private V3 PDF after offline fake payment, without cloud or bank requ
     assert.ok(bytes.length>100000,'Expected full editorial PDF, not mock one-page file');
     assert.equal(bytes.subarray(0,5).toString(),'%PDF-');
     assert.ok(bytes.subarray(-2048).toString('latin1').includes('%%EOF'));
+    const downloadedPdf=join(dir,'downloaded-private.pdf');
+    await writeFile(downloadedPdf,bytes,{mode:0o600});
+    const pdfinfo=spawnSync('pdfinfo',[downloadedPdf],{encoding:'utf8'});
+    assert.equal(pdfinfo.status,0,pdfinfo.stderr);
+    assert.match(pdfinfo.stdout,/Pages:\s+31\b/);
+    const firstPage=spawnSync('pdftotext',['-f','1','-l','1',downloadedPdf,'-'],{encoding:'utf8'});
+    assert.equal(firstPage.status,0,firstPage.stderr);
+    assert.match(firstPage.stdout,/29\.02\.2000/);
     const unauthorized=await fetch(url+'/api/orders/'+orderId+'/report');
     assert.equal(unauthorized.status,401);
   } finally {
