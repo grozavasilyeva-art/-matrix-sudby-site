@@ -50,6 +50,14 @@ export function createSQLiteOrders({filePath,now=Date.now,leaseMs=120000}={}) {
       'claim_token TEXT,claim_until INTEGER NOT NULL DEFAULT 0,private_object_key TEXT);'+
       'CREATE INDEX IF NOT EXISTS orders_report_state_idx ON orders(report_state,status);'
     );
+    db.exec(
+      'CREATE TABLE IF NOT EXISTS checkout_drafts ('+
+      'order_id TEXT PRIMARY KEY,birth_date TEXT NOT NULL,created_at TEXT NOT NULL,'+
+      'token_hash TEXT NOT NULL,idempotency_key TEXT NOT NULL UNIQUE,created_ms INTEGER NOT NULL,'+
+      'request_scope TEXT NOT NULL,payment_id TEXT UNIQUE,confirmation_url TEXT,'+
+      'CHECK ((payment_id IS NULL AND confirmation_url IS NULL) OR '+
+      '(payment_id IS NOT NULL AND confirmation_url IS NOT NULL)));'
+    );
     if (version===0) db.exec('PRAGMA user_version=1');
     chmodSync(filename,0o600);
   } catch(e) {db.close();throw e;}
@@ -73,7 +81,67 @@ export function createSQLiteOrders({filePath,now=Date.now,leaseMs=120000}={}) {
     catch(e) {db.exec('ROLLBACK');throw e;}
   }
   const read=id=>lookup.get(id);
+  const draftLookup=db.prepare('SELECT * FROM checkout_drafts WHERE order_id=?');
+  const draftInsert=db.prepare('INSERT INTO checkout_drafts(order_id,birth_date,created_at,token_hash,idempotency_key,created_ms,request_scope) VALUES(?,?,?,?,?,?,?)');
+  const draftLink=db.prepare('UPDATE checkout_drafts SET payment_id=?,confirmation_url=? WHERE order_id=? AND payment_id IS NULL');
+  function checkoutRow(row) {
+    if(!row)return null;
+    return {
+      orderId:row.order_id,birthDate:row.birth_date,createdAt:row.created_at,
+      tokenHash:row.token_hash,idempotencyKey:row.idempotency_key,createdMs:row.created_ms,
+      requestScope:row.request_scope,product:PRODUCT.sku,amountMinor:PRODUCT.priceMinor,
+      currency:PRODUCT.currency,status:row.payment_id?'payment_pending':'draft',
+      paymentId:row.payment_id,confirmationUrl:row.confirmation_url
+    };
+  }
   const api={
+    async reserveCheckout(draft,tokenHash,requestScope) {
+      if(!draft||draft.status!=='draft'||draft.paymentId!==null||
+         draft.product!==PRODUCT.sku||draft.amountMinor!==PRODUCT.priceMinor||
+         draft.currency!==PRODUCT.currency||!Number.isFinite(Date.parse(draft.createdAt)))
+        throw new Error('Invalid trusted checkout draft');
+      validateId(draft.orderId);
+      normalizeBirthDate(draft.birthDate);
+      if(typeof tokenHash!=='string'||!SHA256.test(tokenHash)||
+         typeof requestScope!=='string'||!SHA256.test(requestScope))
+        throw new Error('Invalid checkout security metadata');
+      const t=now();
+      if(!Number.isSafeInteger(t))throw new Error('Invalid clock');
+      return transaction(()=>{
+        if(read(draft.orderId)||draftLookup.get(draft.orderId))throw new Error('Order already exists');
+        draftInsert.run(draft.orderId,draft.birthDate,draft.createdAt,tokenHash,randomUUID(),t,requestScope);
+        return checkoutRow(draftLookup.get(draft.orderId));
+      });
+    },
+    async getCheckout(id) {
+      validateId(id);
+      return checkoutRow(draftLookup.get(id));
+    },
+    async linkCheckout(id,key,result) {
+      validateId(id);
+      if(!result||result.orderId!==id||result.status!=='payment_pending'||
+        typeof result.paymentId!=='string'||!PAYMENT.test(result.paymentId))
+        throw new Error('Invalid checkout result');
+      let uri;
+      try{uri=new URL(result.confirmationUrl);}catch{throw new Error('Invalid confirmation URL');}
+      if(uri.protocol!=='https:'||uri.username||uri.password||uri.port||uri.hash)
+        throw new Error('Invalid confirmation URL');
+      return transaction(()=>{
+        const row=draftLookup.get(id);
+        if(!row||row.idempotency_key!==key)throw new Error('Checkout key mismatch');
+        if(row.payment_id!==null){
+          if(row.payment_id!==result.paymentId||row.confirmation_url!==uri.href)
+            throw new Error('Conflicting checkout result');
+          if(!read(id))throw new Error('Linked order missing');
+          return checkoutRow(row);
+        }
+        insert.run(id,row.birth_date,PRODUCT.sku,PRODUCT.priceMinor,PRODUCT.currency,
+          'payment_pending',result.paymentId,row.created_at,row.token_hash);
+        if(draftLink.run(result.paymentId,uri.href,id).changes!==1)
+          throw new Error('Checkout linking failed');
+        return checkoutRow(draftLookup.get(id));
+      });
+    },
     async create(record) {
       if (!record||record.status!=='payment_pending'||record.product!==PRODUCT.sku||
           record.amountMinor!==PRODUCT.priceMinor||record.currency!==PRODUCT.currency||
