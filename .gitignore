@@ -1,0 +1,13 @@
+dist/
+node_modules/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+.matrix-demo-data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+/private-report/
